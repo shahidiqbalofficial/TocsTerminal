@@ -2,14 +2,13 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
-            steps {
-                script {
-                    dockerImage = docker.build("shahidiqbal008/distance-converter:${env.BUILD_ID}")
-                }
-            }
+      stage('Build') {
+        steps {
+          script {
+            dockerImage = docker.build("shahidiqbal008/distance-converter:${env.BUILD_ID}")
         }
-
+    }
+}
         stage('Push') {
             steps {
                 script {
@@ -29,6 +28,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
+                   
                     sshPublisher(
                         publishers: [
                             sshPublisherDesc(
@@ -45,15 +45,30 @@ pipeline {
                         ]
                     )
 
-                    // Additional delay to allow the Docker container to start
-                    sleep time: 10, unit: 'SECONDS'
-
-                    // Check if the deployment is successful
-                    boolean isDeploymentSuccessful = sh(script: 'curl -s -o /dev/null -w "%{http_code}" http://102.37.216.229:80', returnStatus: true) == 200
+                  
+                    boolean isDeploymentSuccessful = sh(script: 'curl -s -o /dev/null -w "%{http_code}" http://102.37.216.229:80', returnStdout: true).trim() == '200'
 
                     if (!isDeploymentSuccessful) {
-                        currentBuild.result = 'FAILURE'
-                        error 'Deployment failed'
+                       
+                        def previousSuccessfulTag = readFile('previous_successful_tag.txt').trim()
+                        sshPublisher(
+                            publishers: [
+                                sshPublisherDesc(
+                                    configName: "shahidcs",
+                                    transfers: [sshTransfer(
+                                        execCommand: """
+                                            docker pull shahidiqbal008/distance-converter:${previousSuccessfulTag}
+                                            docker stop distance-converter-container || true
+                                            docker rm distance-converter-container || true
+                                            docker run -d --name distance-converter-container -p 80:80 shahidiqbal008/distance-converter:${previousSuccessfulTag}
+                                        """
+                                    )]
+                                )
+                            ]
+                        )
+                    } else {
+                       
+                        writeFile file: 'previous_successful_tag.txt', text: "${env.BUILD_ID}"
                     }
                 }
             }
@@ -70,6 +85,7 @@ pipeline {
 
                 Regards,
                 Jenkins
+                
                 """
             )
         }
