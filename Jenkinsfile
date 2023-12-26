@@ -30,22 +30,21 @@ pipeline {
                 script {
                    
                     sshPublisher(
-    publishers: [
-        sshPublisherDesc(
-            configName: "shahidcs", 
-            transfers: [sshTransfer(
-                execCommand: """
-                    set -x
-                    docker pull shahidiqbal008/distance-converter:${env.BUILD_ID}
-                    docker stop distance-converter-container || true
-                    docker rm distance-converter-container || true
-                    docker run -d --name distance-converter-container -p 80:80 shahidiqbal008/distance-converter:${env.BUILD_ID}
-                    set +x
-                """
-            )]
-        )
-    ]
-)
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: "shahidcs", 
+                                transfers: [sshTransfer(
+                                    execCommand: """
+                                        docker pull shahidiqbal008/distance-converter:${env.BUILD_ID}
+                                        docker stop distance-converter-container || true
+                                        docker rm distance-converter-container || true
+                                        docker run -d --name distance-converter-container -p 80:80 shahidiqbal008/distance-converter:${env.BUILD_ID}
+                                    """
+                                )]
+                            )
+                        ]
+                    )
+
                   
                     boolean isDeploymentSuccessful = sh(script: 'curl -s -o /dev/null -w "%{http_code}" http://102.37.216.229:80', returnStdout: true).trim() == '200'
 
